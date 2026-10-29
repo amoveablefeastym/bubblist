@@ -339,3 +339,30 @@ body[data-outer="left"] .resize.corner::after { left: 5px; border-left: 2px soli
 body:not([data-outer="left"]) .resize.corner::after { right: 5px; border-right: 2px solid rgba(74, 71, 68, .3); border-bottom-right-radius: 4px; }
 .resize:hover::after, body.resizing .resize::after { opacity: 1; }
 body.resizing, body.resizing * { user-select: none; }
+
+/* Repeat label on a task doubles as a button to change the days. */
+button.tag { cursor: pointer; }
+button.tag:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* Repeat picker */
+.repeat-title { font-size: 10.5px; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); padding-bottom: 6px; }
+.repeat-row { display: block; width: 100%; text-align: left; padding: 5px 4px; border-radius: 3px; color: var(--ink); }
+.repeat-row:hover { background: var(--hover); }
+.repeat-row.is-picked { text-decoration: underline; text-underline-offset: 3px; }
+.weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin: 8px 0 6px; }
+.weekdays button {
+  height: 28px; border-radius: 50%;
+  border: 1px solid var(--rule);
+  color: var(--muted);
+  transition: background .12s ease, color .12s ease, border-color .12s ease;
+}
+.weekdays button:hover { border-color: var(--muted); color: var(--ink); }
+.weekdays button.on { background: var(--ink); border-color: var(--ink); color: #fff; }
+.repeat-presets { display: flex; gap: 14px; padding: 2px 4px 8px; border-bottom: 1px solid var(--rule); }
+.repeat-presets button { color: var(--muted); font-size: 12px; }
+.repeat-presets button:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.repeat-actions { display: flex; justify-content: space-between; align-items: center; padding-top: 8px; }
+.repeat-actions button { color: var(--muted); font-size: 12px; }
+.repeat-actions button:hover { color: var(--ink); }
+.repeat-actions .apply { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.repeat-actions .apply:disabled { color: var(--faint); text-decoration: none; cursor: default; }

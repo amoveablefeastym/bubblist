@@ -85,10 +85,13 @@ const gripIcon = '<svg viewBox="0 0 8 14"><circle cx="2" cy="2" r="1.2"/><circle
 //   for a day:     { id, text, cat, due: 'YYYY-MM-DD', done }
 //   for a week:    { id, text, cat, week: 'YYYY-MM-DD' (Monday), done }
 //   every day:     { id, text, cat, repeat: 'daily',  start: day,  doneOn: { day: true } }
+//   some weekdays: { id, text, cat, repeat: 'days', days: [1, 3, 5] (0 = Sun), start: day, doneOn: { day: true } }
 //   every week:    { id, text, cat, repeat: 'weekly', start: week, doneOn: { week: true } }
 let state = { tasks: [], days: [], collapsed: {}, lastCat: 'work' };
 let selected = today();
-let addRepeat = false;
+// Repeat for the next task added: null, 'daily', an array of weekdays (day
+// tabs), or 'weekly' (Week tab).
+let addRepeat = null;
 let addTime = null; // { time, end? } for the next task added, or null
 let drag = null;
 let confirmDay = null; // day tab waiting for a second click to delete
@@ -122,7 +125,20 @@ function migrate(saved) {
   return next;
 }
 
-// Repeating tasks track completion per day (daily) or per week (weekly).
+// How a repeat reads: 'daily', 'weekdays', 'every mon', 'mon, wed, fri'.
+const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Monday first
+const dayAbbr = (d) => DAYS[d].slice(0, 3).toLowerCase();
+function repeatLabel(repeat, days) {
+  if (repeat !== 'days') return repeat;
+  const set = DAY_ORDER.filter((d) => days.includes(d));
+  if (set.length === 7) return 'daily';
+  if (set.join() === '1,2,3,4,5') return 'weekdays';
+  if (set.join() === '6,0') return 'weekends';
+  if (set.length === 1) return `every ${dayAbbr(set[0])}`;
+  return set.map(dayAbbr).join(', ');
+}
+
+// Repeating tasks track completion per day (daily, weekdays) or per week (weekly).
 const doneKey = (view) => (view === WEEK ? thisWeek() : view);
 const isDone = (task, view) => (task.repeat ? !!(task.doneOn && task.doneOn[doneKey(view)]) : task.done);
 
@@ -134,8 +150,11 @@ function tasksFor(view) {
       || (x.week && (x.week === wk || (x.week < wk && !x.done))));
   }
   const t = today();
-  // Daily tasks show on every day tab, whichever day they were added on.
+  const dow = parse(view).getDay();
+  // Daily tasks show on every day tab, whichever day they were added on;
+  // weekday repeats show on the days they're set for.
   return state.tasks.filter((x) => x.repeat === 'daily'
+    || (x.repeat === 'days' && x.days.includes(dow))
     // Unfinished tasks from past days roll forward into today.
     || (x.due && (x.due === view || (view === t && x.due < t && !x.done))));
 }
@@ -599,7 +618,18 @@ function renderTask(task) {
     li.append(time);
   }
   const rolled = (task.due && task.due < selected) || (task.week && task.week < thisWeek());
-  if (task.repeat || rolled) {
+  if (task.repeat === 'daily' || task.repeat === 'days') {
+    // Click the repeat label to change which days it repeats on.
+    const tag = document.createElement('button');
+    tag.className = 'tag';
+    tag.title = 'Change repeat';
+    tag.textContent = `(${repeatLabel(task.repeat, task.days)})`;
+    tag.onclick = () => openRepeatPicker(tag, task.repeat === 'days' ? task.days : 'daily', (repeat) => {
+      setTaskRepeat(task, repeat);
+      update();
+    });
+    li.append(tag);
+  } else if (task.repeat || rolled) {
     const tag = document.createElement('span');
     tag.className = 'tag';
     tag.textContent = task.repeat ? `(${task.repeat})` : `(from ${shortDate(task.due || task.week)})`;
@@ -666,9 +696,17 @@ function renderComposer() {
     };
     return b;
   }));
-  $('repeat').textContent = selected === WEEK ? 'weekly' : 'daily';
-  $('repeat').title = selected === WEEK ? 'Repeat every week' : 'Repeat every day';
-  $('repeat').classList.toggle('on', addRepeat);
+  // A repeat chosen on one kind of tab doesn't carry over to the other.
+  if (selected === WEEK ? addRepeat && addRepeat !== 'weekly' : addRepeat === 'weekly') addRepeat = null;
+  if (selected === WEEK) {
+    $('repeat').textContent = 'weekly';
+    $('repeat').title = 'Repeat every week';
+  } else {
+    $('repeat').textContent = !addRepeat ? 'repeat'
+      : addRepeat === 'daily' ? 'daily' : repeatLabel('days', addRepeat);
+    $('repeat').title = 'Repeat every day, or on certain days';
+  }
+  $('repeat').classList.toggle('on', !!addRepeat);
   $('time').textContent = addTime ? formatRange(addTime.time, addTime.end) : 'time';
   $('time').classList.toggle('on', !!addTime);
   $('time-clear').hidden = !addTime;
@@ -854,10 +892,12 @@ $('composer').onsubmit = (e) => {
     task = addRepeat
       ? { ...base, repeat: 'weekly', start: thisWeek(), doneOn: {} }
       : { ...base, week: thisWeek(), done: false };
+  } else if (addRepeat === 'daily') {
+    task = { ...base, repeat: 'daily', start: selected, doneOn: {} };
+  } else if (Array.isArray(addRepeat)) {
+    task = { ...base, repeat: 'days', days: addRepeat, start: selected, doneOn: {} };
   } else {
-    task = addRepeat
-      ? { ...base, repeat: 'daily', start: selected, doneOn: {} }
-      : { ...base, due: selected, done: false };
+    task = { ...base, due: selected, done: false };
   }
   // A timed task goes in before the first later-timed task in its section.
   const later = addTime && tasksFor(selected).find((x) => x.cat === task.cat && x.time > addTime.time);
@@ -870,10 +910,79 @@ $('composer').onsubmit = (e) => {
   $('new').focus();
 };
 $('repeat').onclick = () => {
-  addRepeat = !addRepeat;
-  renderComposer();
-  $('new').focus();
+  const done = (repeat) => {
+    addRepeat = repeat;
+    renderComposer();
+    $('new').focus();
+  };
+  if (selected === WEEK) done(addRepeat ? null : 'weekly');
+  else openRepeatPicker($('repeat'), addRepeat, done);
 };
+
+// Change an existing task's repeat. Turning it off keeps it as a one-off on
+// the day being viewed.
+function setTaskRepeat(task, repeat) {
+  if (!repeat) {
+    const done = isDone(task, selected);
+    for (const key of ['repeat', 'days', 'start', 'doneOn']) delete task[key];
+    task.due = selected;
+    task.done = done;
+  } else if (repeat === 'daily') {
+    task.repeat = 'daily';
+    delete task.days;
+  } else {
+    task.repeat = 'days';
+    task.days = repeat;
+  }
+}
+
+/* Repeat picker: every day, or any set of weekdays. `current` and the picked
+   value are null, 'daily', or an array of weekdays (0 = Sun). */
+
+function openRepeatPicker(anchor, current, onPick) {
+  const picker = $('picker');
+  const pick = (repeat) => { closePicker(); onPick(repeat); };
+  // Start from the current days, or the weekday of the tab being viewed.
+  let chosen = current === 'daily' ? [...DAY_ORDER]
+    : Array.isArray(current) ? [...current]
+    : [parse(selected).getDay()];
+
+  const draw = () => {
+    picker.innerHTML = `
+      <div class="repeat-title">repeat</div>
+      <button data-daily class="repeat-row ${current === 'daily' ? 'is-picked' : ''}">every day</button>
+      <div class="weekdays">
+        ${DAY_ORDER.map((d) => `<button data-day="${d}" class="${chosen.includes(d) ? 'on' : ''}" title="${DAYS[d]}">${DAYS[d][0]}</button>`).join('')}
+      </div>
+      <div class="repeat-presets">
+        <button data-set="1,2,3,4,5">weekdays</button>
+        <button data-set="6,0">weekends</button>
+      </div>
+      <div class="repeat-actions">
+        <button data-none>don't repeat</button>
+        <button data-apply class="apply" ${chosen.length ? '' : 'disabled'}>repeat ${chosen.length ? repeatLabel('days', chosen) : '…'}</button>
+      </div>`;
+  };
+
+  const apply = (days) => pick(days.length === 7 ? 'daily' : days.length ? DAY_ORDER.filter((d) => days.includes(d)) : null);
+
+  picker.onclick = (e) => {
+    const b = e.target.closest('button');
+    if (!b || b.disabled) return;
+    if (b.hasAttribute('data-daily')) return pick('daily');
+    if (b.hasAttribute('data-none')) return pick(null);
+    if (b.hasAttribute('data-apply')) return apply(chosen);
+    if (b.dataset.set) return apply(b.dataset.set.split(',').map(Number));
+    if (b.dataset.day) {
+      const d = Number(b.dataset.day);
+      chosen = chosen.includes(d) ? chosen.filter((x) => x !== d) : [...chosen, d];
+      draw();
+    }
+  };
+
+  draw();
+  showPopover(anchor);
+}
 $('time-clear').onclick = () => {
   addTime = null;
   renderComposer();
@@ -922,7 +1031,7 @@ api.on('panel:shown', (side) => {
   // Slide in from the bubble's side.
   shell.classList.add(side === 'right' ? 'enter-right' : 'enter-left');
   selected = today(); // always open on today
-  addRepeat = false;
+  addRepeat = null;
   addTime = null;
   confirmDay = null;
   closePicker();

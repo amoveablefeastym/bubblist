@@ -30,9 +30,9 @@ to tuck it back.
 - **Day tabs.** *Week*, *Today*, *Tomorrow*, plus any day you add with **+**.
   The panel always opens on Today. Added days can be deleted.
 - **Sections.** work · study · life · admin. Click a heading to collapse it.
-- **Daily and weekly tasks.** Toggle **↻ daily** (or **↻ weekly** on the Week
-  tab) when adding. They show up every day or week, and checking one off only
-  counts for that day or week.
+- **Repeating tasks.** Repeat a task every day, on certain weekdays (say Mon,
+  Wed and Fri, or just weekends), or every week on the Week tab. Checking one
+  off only counts for that day or week.
 - **Times and time frames (optional).** Give a task a time like `9:30 am`, or
   a frame like `9:30–11:00 am`. Timed tasks are added in time order.
 - **Nothing gets lost.** Unfinished tasks from past days roll into Today, marked
@@ -84,7 +84,9 @@ whenever you start your Mac.
 | --- | --- |
 | Open or close the list | Click the bubble, or press **⌘⇧Space** anywhere |
 | Hide it | **Esc**, or click anywhere outside the panel |
-| Add a task | Type in **Add new todo** and press **Enter**. Pick a section and **↻ daily/weekly** in the row below. |
+| Add a task | Type in **Add new todo** and press **Enter**. Pick a section in the row below. |
+| Make a task repeat | Click **↻ repeat** before adding: choose **every day**, tap the weekdays you want, or use **weekdays** / **weekends**. (On the Week tab it's **↻ weekly**.) |
+| Change a repeat | Click the task's repeat label, like `(mon, wed, fri)` |
 | Give a task a time | Pick **◷ time** when adding, or hover a task and click **◷**. Choose a start, then an end (or **no end time**). You can also type a time or a whole range, like `9:45pm` or `2-3:30pm`. |
 | Change or remove a time | Click the time on the task, then pick a new one or **× remove time** |
 | Cross a task off (or back on) | Click its text or its box |
