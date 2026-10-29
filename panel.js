@@ -188,62 +188,87 @@ function moveTask(id, cat, beforeId) {
   state.tasks.splice(at, 0, task);
 }
 
-/* Dragging: a lifted copy follows the cursor while the real row acts as a
-   placeholder; the rows around it glide out of the way. */
+/* Dragging: a lifted copy follows the cursor. The list itself never changes
+   during the drag; instead every row is measured once at the start and the
+   rows below the drop point slide down (with a CSS transition) to open a gap.
+   Because targets come from that fixed snapshot, nothing jitters. */
 
-function flip(mutate) {
-  const items = [...document.querySelectorAll('#sections .task:not(.placeholder), #sections .section-head')];
-  const before = new Map(items.map((el) => [el, el.getBoundingClientRect().top]));
-  mutate();
-  for (const el of items) {
-    const dy = before.get(el) - el.getBoundingClientRect().top;
-    if (!dy) continue;
-    el.style.transition = 'none';
-    el.style.transform = `translateY(${dy}px)`;
-    el.getBoundingClientRect();
-    el.style.transition = 'transform .2s cubic-bezier(.2,.8,.2,1)';
-    el.style.transform = '';
-  }
-  drag.settleUntil = performance.now() + 200;
-}
+const DRAG_EASE = 'transform .22s cubic-bezier(.2,.8,.2,1)';
 
 function startDrag(li, task, e) {
+  const main = $('sections');
+  const box = main.getBoundingClientRect();
   const rect = li.getBoundingClientRect();
+  const toContent = (top) => top - box.top + main.scrollTop;
+  const h = rect.height;
+  const origTop = toContent(rect.top);
+
+  // Section headings and visible rows in document order, positioned as if the
+  // dragged row were already gone.
+  const items = [...main.querySelectorAll('.section-head, .task')]
+    .filter((el) => el !== li && el.offsetParent !== null)
+    .map((el) => {
+      const r = el.getBoundingClientRect();
+      const top = toContent(r.top);
+      const below = top > origTop;
+      el.style.transition = DRAG_EASE;
+      return { el, below, top: below ? top - h : top, height: r.height, head: el.classList.contains('section-head'), section: el.closest('section') };
+    });
+
   const ghost = li.cloneNode(true);
   ghost.classList.add('ghost');
   ghost.style.width = `${rect.width}px`;
   ghost.style.transform = `translate(${rect.left}px, ${rect.top}px)`;
   document.body.append(ghost);
-  li.classList.add('placeholder');
+
+  const slot = document.createElement('div');
+  slot.className = 'drop-slot';
+  slot.style.height = `${h}px`;
+  main.append(slot);
+
+  li.classList.add('lifted');
   document.body.classList.add('dragging');
   drag = {
-    task, li, ghost,
+    task, li, ghost, slot, items, h,
     dx: e.clientX - rect.left,
     dy: e.clientY - rect.top,
     x: rect.left, y: rect.top, // where the ghost is drawn (eased toward the cursor)
     tx: rect.left, ty: rect.top, // where the cursor wants it
+    px: e.clientX, py: e.clientY,
     tab: null,
-    settleUntil: 0,
+    target: null,
   };
-  drag.frame = requestAnimationFrame(tickGhost);
+  updateTarget();
+  drag.frame = requestAnimationFrame(tickDrag);
 }
 
-function tickGhost() {
+function tickDrag() {
   if (!drag) return;
-  drag.x += (drag.tx - drag.x) * 0.45;
-  drag.y += (drag.ty - drag.y) * 0.45;
+  drag.x += (drag.tx - drag.x) * 0.55;
+  drag.y += (drag.ty - drag.y) * 0.55;
   drag.ghost.style.transform = `translate(${drag.x}px, ${drag.y}px) scale(1.02)`;
-  drag.frame = requestAnimationFrame(tickGhost);
+
+  // Scroll gently while the cursor rests near the top or bottom edge.
+  const main = $('sections');
+  const box = main.getBoundingClientRect();
+  const edge = 36;
+  let speed = 0;
+  if (drag.py < box.top + edge) speed = -Math.ceil((box.top + edge - drag.py) / 6);
+  else if (drag.py > box.bottom - edge) speed = Math.ceil((drag.py - (box.bottom - edge)) / 6);
+  if (speed && !drag.tab) {
+    const before = main.scrollTop;
+    main.scrollTop += speed;
+    if (main.scrollTop !== before) updateTarget();
+  }
+
+  drag.frame = requestAnimationFrame(tickDrag);
 }
 
 function moveDrag(x, y) {
   drag.tx = x - drag.dx;
   drag.ty = y - drag.dy;
-
-  const main = $('sections');
-  const box = main.getBoundingClientRect();
-  if (y < box.top + 28) main.scrollTop -= 8;
-  else if (y > box.bottom - 28) main.scrollTop += 8;
+  drag.px = x;
+  drag.py = y;
 
   // Repeating tasks belong to every day/week, so they can't be moved to a tab.
   const el = document.elementFromPoint(x, y);
@@ -253,26 +278,43 @@ function moveDrag(x, y) {
     if (tab) tab.classList.add('drop');
     drag.tab = tab;
   }
-  if (tab || performance.now() < drag.settleUntil) return;
+  updateTarget();
+}
 
-  const row = el && el.closest('#sections .task:not(.placeholder)');
-  if (row) {
-    const r = row.getBoundingClientRect();
-    const ref = y > r.top + r.height / 2 ? row.nextElementSibling : row;
-    if (ref !== drag.li && ref !== drag.li.nextElementSibling) {
-      flip(() => row.parentNode.insertBefore(drag.li, ref));
-    }
-    return;
+// Work out where the row would land, then slide everything to show it.
+function updateTarget() {
+  const { items, h } = drag;
+  const main = $('sections');
+  const cy = drag.py - main.getBoundingClientRect().top + main.scrollTop;
+
+  let index; // items from this index on move down to open the gap
+  let slotTop;
+  if (drag.tab) {
+    index = items.findIndex((it) => it.below); // back to the original spot
+    if (index < 0) index = items.length;
+    drag.target = null;
+  } else {
+    const heads = items.filter((it) => it.head);
+    const head = heads.reduce((found, hd) => (hd.top <= cy ? hd : found), heads[0]);
+    const rows = items.filter((it) => !it.head && it.section === head.section);
+    const before = head.section.classList.contains('collapsed') ? null : rows.find((r) => cy < r.top + r.height / 2);
+    const nextHead = heads[heads.indexOf(head) + 1];
+    index = before ? items.indexOf(before) : nextHead ? items.indexOf(nextHead) : items.length;
+    const last = rows.at(-1);
+    slotTop = before ? before.top : last ? last.top + last.height : head.top + head.height;
+    drag.target = { cat: head.section.dataset.cat, beforeId: before ? before.el.dataset.id : null };
   }
-  const section = el && el.closest('#sections section');
-  if (section) {
-    const list = section.querySelector('.tasks');
-    if (drag.li.parentNode !== list) flip(() => list.append(drag.li));
-  }
+
+  items.forEach((it, i) => {
+    const dy = (it.below ? -h : 0) + (i >= index ? h : 0);
+    it.el.style.transform = dy ? `translateY(${dy}px)` : '';
+  });
+  drag.slot.style.opacity = drag.target ? '1' : '0';
+  if (slotTop !== undefined) drag.slot.style.transform = `translateY(${slotTop}px)`;
 }
 
 function endDrag() {
-  const { task, li, ghost, tab } = drag;
+  const { task, ghost, slot, tab, target } = drag;
   cancelAnimationFrame(drag.frame);
   drag = null;
   document.body.classList.remove('dragging');
@@ -292,16 +334,14 @@ function endDrag() {
     return;
   }
 
-  const section = li.closest('section');
-  const next = li.nextElementSibling;
-  moveTask(task.id, section.dataset.cat, next && next.dataset.id);
+  moveTask(task.id, target.cat, target.beforeId);
 
   // Settle the ghost into the gap before swapping back to the real row.
-  const r = (section.classList.contains('collapsed') ? section.querySelector('.section-head') : li).getBoundingClientRect();
-  ghost.style.transition = 'transform .18s cubic-bezier(.2,.8,.2,1), box-shadow .18s ease';
+  const r = slot.getBoundingClientRect();
+  ghost.style.transition = 'transform .2s cubic-bezier(.2,.8,.2,1), box-shadow .2s ease';
   ghost.style.transform = `translate(${r.left}px, ${r.top}px) scale(1)`;
   ghost.style.boxShadow = 'none';
-  setTimeout(finish, 180);
+  setTimeout(finish, 200);
 }
 
 function armDrag(li, task, e) {
@@ -432,7 +472,7 @@ function renderTask(task) {
 
   const check = document.createElement('button');
   check.className = 'check';
-  check.onclick = () => {
+  const toggle = () => {
     if (li.classList.contains('completing')) return;
     if (done) {
       setDone(task, false);
@@ -454,14 +494,22 @@ function renderTask(task) {
     }
     setTimeout(() => { setDone(task, true); update(); }, 650);
   };
+  check.onclick = toggle;
 
+  // Clicking the text crosses it out too (a drag starts only once the pointer moves).
   const label = document.createElement('span');
   label.className = 'label';
   const ink = document.createElement('span');
   ink.className = 'ink';
   ink.textContent = task.text;
   label.append(ink);
-  label.ondblclick = () => startEdit(label, task);
+  label.onclick = () => { if (label.contentEditable !== 'true') toggle(); };
+
+  const edit = document.createElement('button');
+  edit.className = 'del edit';
+  edit.title = 'Edit';
+  edit.textContent = '✎';
+  edit.onclick = () => startEdit(label, task);
 
   const del = document.createElement('button');
   del.className = 'del';
@@ -481,8 +529,6 @@ function renderTask(task) {
     time.className = 'time';
     time.title = 'Change time';
     time.textContent = formatTime(task.time);
-    // Past due today and still open: let it show.
-    if (selected === today() && !done && task.time < nowTime()) time.classList.add('late');
     time.onclick = () => setTime(time);
     li.append(time);
   }
@@ -501,7 +547,7 @@ function renderTask(task) {
     clock.onclick = () => setTime(clock);
     li.append(clock);
   }
-  li.append(del);
+  li.append(edit, del);
   return li;
 }
 

@@ -30,12 +30,12 @@ to tuck it back.
   tab) when adding. They show up every day or week, and checking one off only
   counts for that day or week.
 - **Times of day (optional).** Give a task a time like `9:30 am`. Timed tasks
-  are added in time order, and on Today a time that has passed turns soft red
-  until the task is done.
+  are added in time order.
 - **Nothing gets lost.** Unfinished tasks from past days roll into Today, marked
   `(from Oct 25)`. The same goes for past weeks.
-- **Drag and drop.** Reorder tasks, move them between sections, or drop one on
-  a day tab to reschedule it.
+- **Drag and drop.** Grab a task anywhere and the others glide aside to make
+  room. Reorder tasks, move them between sections, or drop one on a day tab to
+  reschedule it.
 - **Confetti.** Every finished task gets a burst; clearing a whole tab gets a
   bigger one.
 - **Private.** Everything is stored locally as a JSON file. No accounts, no
@@ -83,7 +83,9 @@ whenever you start your Mac.
 | Add a task | Type in **Add new todo** and press **Enter**. Pick a section and **↻ daily/weekly** in the row below. |
 | Give a task a time | Pick **◷ time** when adding (choose a slot or type one, like `9:45pm`), or hover a task and click **◷** |
 | Change or remove a time | Click the time on the task |
-| Edit a task | Double-click its text |
+| Cross a task off (or back on) | Click its text or its box |
+| Move a task | Press anywhere on it and drag |
+| Edit a task | Hover it and click **✎** |
 | Delete a task | Hover it and click **×** |
 | Reschedule | Drag the task onto another day tab (or **Week**) |
 | Add a day | Click **+** at the end of the tabs |
