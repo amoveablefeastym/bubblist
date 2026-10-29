@@ -86,7 +86,7 @@ whenever you start your Mac.
 | Hide it | **Esc**, or click anywhere outside the panel |
 | Add a task | Type in **Add new todo** and press **Enter**. Pick a section and **↻ daily/weekly** in the row below. |
 | Give a task a time | Pick **◷ time** when adding, or hover a task and click **◷**. Choose a start, then an end (or **no end time**). You can also type a time or a whole range, like `9:45pm` or `2-3:30pm`. |
-| Change or remove a time | Click the time on the task |
+| Change or remove a time | Click the time on the task, then pick a new one or **× remove time** |
 | Cross a task off (or back on) | Click its text or its box |
 | Move a task | Press anywhere on it and drag |
 | Edit a task | Hover it and click **✎** |

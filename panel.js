@@ -671,6 +671,7 @@ function renderComposer() {
   $('repeat').classList.toggle('on', addRepeat);
   $('time').textContent = addTime ? formatRange(addTime.time, addTime.end) : 'time';
   $('time').classList.toggle('on', !!addTime);
+  $('time-clear').hidden = !addTime;
 }
 
 function render() {
@@ -761,8 +762,8 @@ function openTimePicker(anchor, current, onPick) {
   const stepStart = () => {
     picker.innerHTML = `
       <input class="time-entry" placeholder="a time or range, e.g. 2-3:30pm" spellcheck="false">
+      ${current ? `<button data-clear class="remove-time">× remove time <span>(${formatRange(current.time, current.end)})</span></button>` : ''}
       <div class="slots">
-        ${current ? '<button data-clear class="clear">no time</button>' : ''}
         ${HALF_HOURS.map((s) => `<button data-time="${s}" class="${current && s === current.time ? 'is-picked' : ''}">${formatTime(s)}</button>`).join('')}
       </div>`;
     picker.onclick = (e) => {
@@ -775,6 +776,7 @@ function openTimePicker(anchor, current, onPick) {
     entry.onkeydown = (e) => {
       if (e.key !== 'Enter') return;
       e.preventDefault();
+      if (!entry.value.trim() && current) return pick(null); // Enter on an empty field clears the time
       const frame = parseTimeFrame(entry.value);
       if (frame) pick(frame);
       else entry.classList.add('invalid');
@@ -869,6 +871,11 @@ $('composer').onsubmit = (e) => {
 };
 $('repeat').onclick = () => {
   addRepeat = !addRepeat;
+  renderComposer();
+  $('new').focus();
+};
+$('time-clear').onclick = () => {
+  addTime = null;
   renderComposer();
   $('new').focus();
 };

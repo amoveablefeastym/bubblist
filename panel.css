@@ -288,6 +288,16 @@ body.dragging .task .del { opacity: 0; }
 .slots button:hover { color: var(--ink); background: var(--hover); }
 .slots button.is-picked { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 .slots .clear { grid-column: 1 / -1; font-style: normal; color: var(--faint); }
+.remove-time {
+  display: block; width: 100%;
+  margin-top: 6px; padding: 5px 4px;
+  text-align: left; color: var(--ink);
+  border-bottom: 1px solid var(--rule);
+}
+.remove-time span { color: var(--faint); }
+.remove-time:hover { background: var(--hover); }
+#time-clear { margin-left: -8px; color: var(--muted); }
+#time-clear:hover { color: var(--ink); }
 .slots .dur { font-size: 10.5px; color: var(--faint); }
 .time-step { display: flex; align-items: center; gap: 6px; padding: 0 0 6px; color: var(--muted); font-size: 12px; }
 .time-step button { width: 18px; font-size: 15px; color: var(--muted); }
