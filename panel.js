@@ -16,6 +16,27 @@ const thisWeek = () => { const d = new Date(); return iso(addDays(d, -((d.getDay
 const daysFromToday = (s) => Math.round((parse(s) - parse(today())) / 86400000);
 const shortDate = (s) => { const d = parse(s); return `${MONTHS[d.getMonth()].slice(0, 3)} ${d.getDate()}`; };
 
+// Times are stored as 'HH:MM' (24h) and shown in the system's 12/24-hour style.
+const HOUR12 = new Intl.DateTimeFormat([], { hour: 'numeric' }).resolvedOptions().hour12;
+function formatTime(t) {
+  const [h, m] = t.split(':').map(Number);
+  if (!HOUR12) return t;
+  return `${h % 12 || 12}:${pad(m)} ${h < 12 ? 'am' : 'pm'}`;
+}
+// Accepts '9', '9:45', '945', '9:45pm', '9p', '21:30'. Returns 'HH:MM' or null.
+function parseTime(input) {
+  const m = input.trim().toLowerCase().replace(/\s+/g, '').match(/^(\d{1,2})(?::?(\d{2}))?(a|am|p|pm)?$/);
+  if (!m) return null;
+  let h = Number(m[1]);
+  const min = Number(m[2] || 0);
+  if (m[3] && (h < 1 || h > 12)) return null;
+  if (m[3] && m[3][0] === 'p' && h !== 12) h += 12;
+  if (m[3] && m[3][0] === 'a' && h === 12) h = 0;
+  if (h > 23 || min > 59) return null;
+  return `${pad(h)}:${pad(min)}`;
+}
+const nowTime = () => { const d = new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+
 const gripIcon = '<svg viewBox="0 0 8 14"><circle cx="2" cy="2" r="1.2"/><circle cx="6" cy="2" r="1.2"/><circle cx="2" cy="7" r="1.2"/><circle cx="6" cy="7" r="1.2"/><circle cx="2" cy="12" r="1.2"/><circle cx="6" cy="12" r="1.2"/></svg>';
 
 // Task shapes:
@@ -26,6 +47,7 @@ const gripIcon = '<svg viewBox="0 0 8 14"><circle cx="2" cy="2" r="1.2"/><circle
 let state = { tasks: [], days: [], collapsed: {}, lastCat: 'work' };
 let selected = today();
 let addRepeat = false;
+let addTime = null; // 'HH:MM' for the next task added, or null
 let drag = null;
 let confirmDay = null; // day tab waiting for a second click to delete
 let confirmTimer;
@@ -447,13 +469,37 @@ function renderTask(task) {
   del.textContent = '×';
   del.onclick = () => { state.tasks = state.tasks.filter((x) => x !== task); update(); };
 
+  const setTime = (anchor) => openTimePicker(anchor, task.time, (time) => {
+    if (time) task.time = time;
+    else delete task.time;
+    update();
+  });
+
   li.append(grip, check, label);
+  if (task.time) {
+    const time = document.createElement('button');
+    time.className = 'time';
+    time.title = 'Change time';
+    time.textContent = formatTime(task.time);
+    // Past due today and still open: let it show.
+    if (selected === today() && !done && task.time < nowTime()) time.classList.add('late');
+    time.onclick = () => setTime(time);
+    li.append(time);
+  }
   const rolled = (task.due && task.due < selected) || (task.week && task.week < thisWeek());
   if (task.repeat || rolled) {
     const tag = document.createElement('span');
     tag.className = 'tag';
     tag.textContent = task.repeat ? `(${task.repeat})` : `(from ${shortDate(task.due || task.week)})`;
     li.append(tag);
+  }
+  if (!task.time) {
+    const clock = document.createElement('button');
+    clock.className = 'del clock';
+    clock.title = 'Add a time';
+    clock.textContent = '◷';
+    clock.onclick = () => setTime(clock);
+    li.append(clock);
   }
   li.append(del);
   return li;
@@ -511,6 +557,8 @@ function renderComposer() {
   $('repeat').textContent = selected === WEEK ? 'weekly' : 'daily';
   $('repeat').title = selected === WEEK ? 'Repeat every week' : 'Repeat every day';
   $('repeat').classList.toggle('on', addRepeat);
+  $('time').textContent = addTime ? formatTime(addTime) : 'time';
+  $('time').classList.toggle('on', !!addTime);
 }
 
 function render() {
@@ -577,12 +625,56 @@ function openPicker(anchor, onPick) {
   };
 
   draw();
-  picker.hidden = false;
+  showPopover(anchor);
+}
 
+/* Time picker: half-hour slots, scrolled to around now, plus a field for an exact time */
+
+function openTimePicker(anchor, current, onPick) {
+  const picker = $('picker');
+  const slots = [];
+  for (let h = 0; h < 24; h++) for (const m of [0, 30]) slots.push(`${pad(h)}:${pad(m)}`);
+
+  picker.innerHTML = `
+    <input class="time-entry" placeholder="type a time, e.g. 9:45pm" spellcheck="false">
+    <div class="slots">
+      ${current ? '<button data-time="" class="clear">no time</button>' : ''}
+      ${slots.map((s) => `<button data-time="${s}" class="${s === current ? 'is-picked' : ''}">${formatTime(s)}</button>`).join('')}
+    </div>`;
+
+  const pick = (time) => { closePicker(); onPick(time); };
+  picker.onclick = (e) => {
+    const b = e.target.closest('button[data-time]');
+    if (b) pick(b.dataset.time || null);
+  };
+  const entry = picker.querySelector('.time-entry');
+  entry.onkeydown = (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const time = parseTime(entry.value);
+    if (time) pick(time);
+    else entry.classList.add('invalid');
+  };
+  entry.oninput = () => entry.classList.remove('invalid');
+
+  showPopover(anchor);
+  // Start the list near the chosen time, or near now.
+  const near = current || nowTime();
+  const slot = [...picker.querySelectorAll('.slots button[data-time]')].find((b) => b.dataset.time && b.dataset.time >= near.slice(0, 3) + (near.slice(3) < '30' ? '00' : '30'));
+  if (slot) picker.querySelector('.slots').scrollTop = slot.offsetTop - picker.querySelector('.slots').offsetTop - 30;
+  entry.focus();
+}
+
+// Place the shared popover next to its anchor, flipping above when there's no room below.
+function showPopover(anchor) {
+  const picker = $('picker');
+  picker.hidden = false;
   const shell = $('shell').getBoundingClientRect();
   const a = anchor.getBoundingClientRect();
   picker.style.left = `${Math.max(12, Math.min(a.right - shell.left - picker.offsetWidth, shell.width - picker.offsetWidth - 12))}px`;
-  picker.style.top = `${a.bottom - shell.top + 6}px`;
+  let top = a.bottom - shell.top + 6;
+  if (top + picker.offsetHeight > shell.height - 8) top = a.top - shell.top - picker.offsetHeight - 6;
+  picker.style.top = `${Math.max(8, top)}px`;
 }
 
 function closePicker() {
@@ -599,17 +691,23 @@ $('composer').onsubmit = (e) => {
   e.preventDefault();
   const text = $('new').value.trim();
   if (!text) return;
-  const base = { id: uid(), text, cat: state.lastCat };
+  const base = { id: uid(), text, cat: state.lastCat, ...(addTime ? { time: addTime } : {}) };
+  let task;
   if (selected === WEEK) {
-    state.tasks.push(addRepeat
+    task = addRepeat
       ? { ...base, repeat: 'weekly', start: thisWeek(), doneOn: {} }
-      : { ...base, week: thisWeek(), done: false });
+      : { ...base, week: thisWeek(), done: false };
   } else {
-    state.tasks.push(addRepeat
+    task = addRepeat
       ? { ...base, repeat: 'daily', start: selected, doneOn: {} }
-      : { ...base, due: selected, done: false });
+      : { ...base, due: selected, done: false };
   }
+  // A timed task goes in before the first later-timed task in its section.
+  const later = addTime && tasksFor(selected).find((x) => x.cat === task.cat && x.time > addTime);
+  if (later) state.tasks.splice(state.tasks.indexOf(later), 0, task);
+  else state.tasks.push(task);
   state.collapsed[state.lastCat] = false;
+  addTime = null;
   $('new').value = '';
   update();
   $('new').focus();
@@ -619,6 +717,11 @@ $('repeat').onclick = () => {
   renderComposer();
   $('new').focus();
 };
+$('time').onclick = () => openTimePicker($('time'), addTime, (time) => {
+  addTime = time;
+  renderComposer();
+  $('new').focus();
+});
 // Keep focus in the entry line when picking options, so they stay visible.
 document.querySelector('.options').addEventListener('mousedown', (e) => e.preventDefault());
 
@@ -636,6 +739,7 @@ api.on('panel:shown', (side) => {
   shell.classList.add(side === 'right' ? 'enter-right' : 'enter-left');
   selected = today(); // always open on today
   addRepeat = false;
+  addTime = null;
   confirmDay = null;
   closePicker();
   render();

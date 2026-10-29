@@ -29,6 +29,9 @@ to tuck it back.
 - **Daily and weekly tasks.** Toggle **↻ daily** (or **↻ weekly** on the Week
   tab) when adding. They show up every day or week, and checking one off only
   counts for that day or week.
+- **Times of day (optional).** Give a task a time like `9:30 am`. Timed tasks
+  are added in time order, and on Today a time that has passed turns soft red
+  until the task is done.
 - **Nothing gets lost.** Unfinished tasks from past days roll into Today, marked
   `(from Oct 25)`. The same goes for past weeks.
 - **Drag and drop.** Reorder tasks, move them between sections, or drop one on
@@ -78,6 +81,8 @@ whenever you start your Mac.
 | Open or close the list | Click the bubble, or press **⌘⇧Space** anywhere |
 | Hide it | **Esc**, or click anywhere outside the panel |
 | Add a task | Type in **Add new todo** and press **Enter**. Pick a section and **↻ daily/weekly** in the row below. |
+| Give a task a time | Pick **◷ time** when adding (choose a slot or type one, like `9:45pm`), or hover a task and click **◷** |
+| Change or remove a time | Click the time on the task |
 | Edit a task | Double-click its text |
 | Delete a task | Hover it and click **×** |
 | Reschedule | Drag the task onto another day tab (or **Week**) |

@@ -198,6 +198,13 @@ body.dragging .task .grip { opacity: 0; }
 
 .tag { flex: none; font-size: 11px; color: var(--faint); }
 
+.time { flex: none; font-size: 11px; color: var(--muted); margin-top: 1px; white-space: nowrap; }
+.time:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.time.late { color: #c0705f; }
+.task.done .time { color: var(--faint); }
+.clock { font-size: 13px; }
+#time::before { content: "◷ "; }
+
 .del {
   flex: none;
   width: 18px; height: 22px;
@@ -245,6 +252,23 @@ body.dragging .task .del { opacity: 0; }
   box-shadow: 0 10px 30px rgba(60, 50, 40, .14);
   font-size: 13px;
 }
+.time-entry {
+  width: 100%;
+  padding: 4px 2px 6px;
+  border: 0; border-bottom: 1px solid var(--rule);
+  background: none; outline: none;
+  font: inherit; color: var(--ink);
+}
+.time-entry::placeholder { color: var(--faint); }
+.time-entry.invalid { border-bottom-color: #c0705f; animation: shake .25s; }
+@keyframes shake { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+.slots { max-height: 190px; overflow-y: auto; margin-top: 6px; display: grid; grid-template-columns: 1fr 1fr; gap: 1px 8px; }
+.slots::-webkit-scrollbar { width: 4px; }
+.slots::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 2px; }
+.slots button { text-align: left; padding: 3px 4px; color: var(--muted); border-radius: 3px; }
+.slots button:hover { color: var(--ink); background: var(--hover); }
+.slots button.is-picked { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.slots .clear { grid-column: 1 / -1; font-style: normal; color: var(--faint); }
 .month { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
 .month button { width: 22px; color: var(--muted); }
 .month button:hover { color: var(--ink); }
