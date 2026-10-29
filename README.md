@@ -9,6 +9,10 @@
   A little bubble lives on your desktop. Click it, and your day slides out.
 </p>
 
+<p align="center">
+  <img src="docs/screenshot.png" width="361" alt="The Bubblist panel showing today's tasks grouped into work, study, life and admin, with one task crossed off, a task due at 6:00 pm, and a daily task">
+</p>
+
 ---
 
 Bubblist is a tiny, quiet to-do list that stays out of your way. There's no
