@@ -1,0 +1,24 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>
+  html, body { margin: 0; width: 1024px; height: 1024px; background: transparent; }
+  .tile {
+    position: absolute; left: 100px; top: 100px; width: 824px; height: 824px;
+    border-radius: 185px;
+    background:
+      linear-gradient(135deg, rgba(255,255,255,.75) 0%, rgba(255,255,255,0) 45%),
+      linear-gradient(160deg, #e9e4ff 0%, #cfe3ff 45%, #ffd9e6 100%);
+    box-shadow: inset 0 6px 0 rgba(255,255,255,.95), inset 0 -10px 30px rgba(120,110,170,.18), 0 24px 50px rgba(60,50,90,.25);
+    border: 3px solid rgba(255,255,255,.85);
+  }
+  .row { position: absolute; left: 210px; display: flex; align-items: center; gap: 60px; }
+  .box { width: 96px; height: 96px; border-radius: 26px; border: 10px solid #8e8a9e; box-sizing: border-box; background: rgba(255,255,255,.55); display: grid; place-items: center; }
+  .box.done { background: #b9b4c7; border-color: #b9b4c7; }
+  .box svg { width: 62px; height: 62px; }
+  .line { height: 22px; border-radius: 11px; background: #6d6880; }
+  .done + .line { background: #c2bdcf; }
+</style></head><body>
+  <div class="tile"></div>
+  <div class="row" style="top:300px"><div class="box done"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div><div class="line" style="width:420px"></div></div>
+  <div class="row" style="top:464px"><div class="box"></div><div class="line" style="width:340px"></div></div>
+  <div class="row" style="top:628px"><div class="box"></div><div class="line" style="width:390px"></div></div>
+</body></html>

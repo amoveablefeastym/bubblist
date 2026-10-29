@@ -1,0 +1,54 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'">
+<style>
+  :root { --paper: rgba(255, 253, 248, .9); --ink: #4a4744; --muted: #b3aea8; }
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; user-select: none; }
+  .orb {
+    position: absolute; inset: 6px;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    cursor: pointer;
+    color: var(--ink);
+    background: var(--paper);
+    border: 1px solid #e4e4e4;
+    box-shadow: 0 4px 14px rgba(0,0,0,.16);
+    transition: transform .18s ease;
+  }
+  /* With native Liquid Glass the window itself is the glass disc. */
+  body.liquid .orb { inset: 0; background: transparent; border-color: transparent; box-shadow: none; }
+  .orb:hover { transform: scale(1.06); }
+  .orb.open { transform: scale(.94); }
+  .num {
+    font: 300 17px/1 ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  .num.done { color: var(--muted); font-size: 18px; }
+</style>
+</head>
+<body>
+  <div class="orb" id="orb" title="Open planner"><span class="num" id="num">✓</span></div>
+<script>
+  const orb = document.getElementById('orb');
+  const num = document.getElementById('num');
+
+  orb.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    orb.setPointerCapture(e.pointerId);
+    api.dragStart();
+  });
+  orb.addEventListener('pointerup', (e) => {
+    if (e.button !== 0) return;
+    api.dragEnd();
+  });
+  orb.addEventListener('contextmenu', (e) => { e.preventDefault(); api.menu(); });
+
+  api.on('bubble:open', (open) => orb.classList.toggle('open', open));
+  api.on('bubble:count', (n) => {
+    num.textContent = n ? (n > 99 ? '99+' : n) : '✓';
+    num.classList.toggle('done', !n);
+  });
+</script>
+</body>
+</html>
