@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, screen, Menu, globalShortcut, nativeTheme }
 const path = require('path');
 const fs = require('fs');
 
-const BUBBLE = 64;
+const BUBBLE = 72; // window size; the bubble itself is a little smaller, leaving room to float
 const PANEL_W = 380; // default size; the user can resize and it's remembered
 const PANEL_H = 620;
 const PANEL_MIN_W = 300;
@@ -81,12 +81,9 @@ function createBubble() {
   });
   bubble.setAlwaysOnTop(true, 'floating');
   bubble.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  // The bubble draws itself as a see-through soap bubble in CSS, so it skips
+  // Liquid Glass (which would frost what's behind it).
   bubble.loadFile('bubble.html');
-  bubble.webContents.once('did-finish-load', () => {
-    if (applyLiquidGlass(bubble, { cornerRadius: BUBBLE / 2, tintColor: '#ffffff10' })) {
-      bubble.webContents.executeJavaScript("document.body.classList.add('liquid')");
-    }
-  });
 }
 
 function createPanel() {
