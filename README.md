@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshot.png" width="720" alt="Bubblist on a Mac desktop: the glass bubble showing 2 tasks left, and beside it the see-through panel with today's tasks grouped into work, study, life and admin, one crossed off, one due at 6:00 pm, and a daily task">
+  <img src="docs/screenshot.png" width="361" alt="The Bubblist panel showing today's tasks grouped into work, study, life and admin, with one task crossed off, a task due at 6:00 pm, and a daily task">
 </p>
 
 ---
