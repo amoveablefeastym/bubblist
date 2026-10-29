@@ -70,7 +70,7 @@ header {
 /* Day tabs: typed words, the current one underlined. */
 .tabs {
   display: flex; gap: 10px; justify-content: center;
-  padding-bottom: 12px;
+  padding: 4px 4px 12px;
   border-bottom: 1px solid var(--rule);
   overflow-x: auto;
   scrollbar-width: none;
@@ -80,9 +80,11 @@ header {
   position: relative;
   flex: none;
   padding: 2px 8px;
+  border: 1px dashed transparent;
+  border-radius: 7px;
   color: var(--faint);
   white-space: nowrap;
-  transition: color .15s ease;
+  transition: color .15s ease, background .15s ease, border-color .15s ease, transform .18s cubic-bezier(.3,1.5,.5,1);
 }
 .tab:hover { color: var(--muted); }
 .tab.active {
@@ -91,7 +93,15 @@ header {
   text-underline-offset: 5px;
   text-decoration-thickness: 1px;
 }
-.tab.drop { color: var(--ink); background: var(--hover); }
+/* While a task is being dragged, day tabs show they can take it. */
+body.dragging:not(.drag-repeat) .tab[data-view] { border-color: rgba(74, 71, 68, .28); color: var(--muted); }
+body.dragging:not(.drag-repeat) .tab.drop {
+  border-style: solid;
+  border-color: rgba(74, 71, 68, .45);
+  background: rgba(255, 255, 255, .7);
+  color: var(--ink);
+  transform: scale(1.12);
+}
 .tab .x {
   position: absolute; top: -4px; right: -4px;
   width: 14px; height: 14px;
@@ -278,6 +288,10 @@ body.dragging .task .del { opacity: 0; }
 .slots button:hover { color: var(--ink); background: var(--hover); }
 .slots button.is-picked { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 .slots .clear { grid-column: 1 / -1; font-style: normal; color: var(--faint); }
+.slots .dur { font-size: 10.5px; color: var(--faint); }
+.time-step { display: flex; align-items: center; gap: 6px; padding: 0 0 6px; color: var(--muted); font-size: 12px; }
+.time-step button { width: 18px; font-size: 15px; color: var(--muted); }
+.time-step button:hover { color: var(--ink); }
 .month { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
 .month button { width: 22px; color: var(--muted); }
 .month button:hover { color: var(--ink); }

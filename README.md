@@ -33,13 +33,13 @@ to tuck it back.
 - **Daily and weekly tasks.** Toggle **↻ daily** (or **↻ weekly** on the Week
   tab) when adding. They show up every day or week, and checking one off only
   counts for that day or week.
-- **Times of day (optional).** Give a task a time like `9:30 am`. Timed tasks
-  are added in time order.
+- **Times and time frames (optional).** Give a task a time like `9:30 am`, or
+  a frame like `9:30–11:00 am`. Timed tasks are added in time order.
 - **Nothing gets lost.** Unfinished tasks from past days roll into Today, marked
   `(from Oct 25)`. The same goes for past weeks.
 - **Drag and drop.** Grab a task anywhere and the others glide aside to make
   room. Reorder tasks, move them between sections, or drop one on a day tab to
-  reschedule it.
+  reschedule it. Drop it on **+** to send it to any date.
 - **Confetti.** Every finished task gets a burst; clearing a whole tab gets a
   bigger one.
 - **Private.** Everything is stored locally as a JSON file. No accounts, no
@@ -85,13 +85,13 @@ whenever you start your Mac.
 | Open or close the list | Click the bubble, or press **⌘⇧Space** anywhere |
 | Hide it | **Esc**, or click anywhere outside the panel |
 | Add a task | Type in **Add new todo** and press **Enter**. Pick a section and **↻ daily/weekly** in the row below. |
-| Give a task a time | Pick **◷ time** when adding (choose a slot or type one, like `9:45pm`), or hover a task and click **◷** |
+| Give a task a time | Pick **◷ time** when adding, or hover a task and click **◷**. Choose a start, then an end (or **no end time**). You can also type a time or a whole range, like `9:45pm` or `2-3:30pm`. |
 | Change or remove a time | Click the time on the task |
 | Cross a task off (or back on) | Click its text or its box |
 | Move a task | Press anywhere on it and drag |
 | Edit a task | Hover it and click **✎** |
 | Delete a task | Hover it and click **×** |
-| Reschedule | Drag the task onto another day tab (or **Week**) |
+| Move a task to another day | Drag it onto that day's tab (or **Week**), or onto **+** to pick any date |
 | Add a day | Click **+** at the end of the tabs |
 | Delete a day | Hover its tab and click **×** |
 | Collapse a section | Click its heading |

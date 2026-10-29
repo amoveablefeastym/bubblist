@@ -23,17 +23,59 @@ function formatTime(t) {
   if (!HOUR12) return t;
   return `${h % 12 || 12}:${pad(m)} ${h < 12 ? 'am' : 'pm'}`;
 }
-// Accepts '9', '9:45', '945', '9:45pm', '9p', '21:30'. Returns 'HH:MM' or null.
-function parseTime(input) {
+// A time frame shows as '9:30–11:00 am', or '11:30 am–1:00 pm' across noon.
+function formatRange(time, end) {
+  if (!end) return formatTime(time);
+  if (!HOUR12) return `${time}–${end}`;
+  const sameHalf = (time < '12:00') === (end < '12:00');
+  return `${sameHalf ? formatTime(time).slice(0, -3) : formatTime(time)}–${formatTime(end)}`;
+}
+// '1h', '1.5h', '45m' between two 'HH:MM' times.
+function duration(time, end) {
+  const mins = (Number(end.slice(0, 2)) * 60 + Number(end.slice(3))) - (Number(time.slice(0, 2)) * 60 + Number(time.slice(3)));
+  return mins < 60 ? `${mins}m` : `${+(mins / 60).toFixed(2)}h`;
+}
+
+// Reads one clock reading like '9', '9:45', '945', '9:45pm', '9p', '21:30'.
+function parseClock(input) {
   const m = input.trim().toLowerCase().replace(/\s+/g, '').match(/^(\d{1,2})(?::?(\d{2}))?(a|am|p|pm)?$/);
   if (!m) return null;
-  let h = Number(m[1]);
+  const h = Number(m[1]);
   const min = Number(m[2] || 0);
-  if (m[3] && (h < 1 || h > 12)) return null;
-  if (m[3] && m[3][0] === 'p' && h !== 12) h += 12;
-  if (m[3] && m[3][0] === 'a' && h === 12) h = 0;
-  if (h > 23 || min > 59) return null;
-  return `${pad(h)}:${pad(min)}`;
+  const half = m[3] ? m[3][0] : null;
+  if (min > 59 || h > 23 || (half && (h < 1 || h > 12))) return null;
+  return { h, min, half };
+}
+function to24({ h, min }, half) {
+  let hh = h;
+  if (half === 'p' && h !== 12) hh += 12;
+  if (half === 'a' && h === 12) hh = 0;
+  return `${pad(hh)}:${pad(min)}`;
+}
+function parseTime(input) {
+  const c = parseClock(input);
+  return c ? to24(c, c.half) : null;
+}
+// A single time or a range like '2-3:30pm', '9am–11', '10 to 12'.
+// Returns { time, end? } in 'HH:MM', or null.
+function parseTimeFrame(input) {
+  const parts = input.split(/\s*(?:-|–|—|\bto\b)\s*/i);
+  if (parts.length === 1) {
+    const time = parseTime(input);
+    return time ? { time } : null;
+  }
+  if (parts.length !== 2) return null;
+  const a = parseClock(parts[0]);
+  const b = parseClock(parts[1]);
+  if (!a || !b) return null;
+  const end = to24(b, b.half);
+  let time = to24(a, a.half);
+  // '2-3:30pm': the start borrows the end's am/pm, unless that would put it after the end.
+  if (!a.half && b.half && a.h <= 12) {
+    time = to24(a, b.half);
+    if (time >= end) time = to24(a, b.half === 'p' ? 'a' : 'p');
+  }
+  return end > time ? { time, end } : null;
 }
 const nowTime = () => { const d = new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 
@@ -47,7 +89,7 @@ const gripIcon = '<svg viewBox="0 0 8 14"><circle cx="2" cy="2" r="1.2"/><circle
 let state = { tasks: [], days: [], collapsed: {}, lastCat: 'work' };
 let selected = today();
 let addRepeat = false;
-let addTime = null; // 'HH:MM' for the next task added, or null
+let addTime = null; // { time, end? } for the next task added, or null
 let drag = null;
 let confirmDay = null; // day tab waiting for a second click to delete
 let confirmTimer;
@@ -162,6 +204,7 @@ function renderTabs() {
 
   const add = document.createElement('button');
   add.className = 'tab add';
+  add.dataset.view = 'pick'; // dropping a task here asks which day to move it to
   add.textContent = '+';
   add.title = 'Add another day';
   add.onclick = () => openPicker(add, (day) => {
@@ -228,8 +271,12 @@ function startDrag(li, task, e) {
 
   li.classList.add('lifted');
   document.body.classList.add('dragging');
+  // Repeating tasks belong to every day/week, so day tabs don't take them.
+  document.body.classList.toggle('drag-repeat', !!task.repeat);
+  ghost.style.transformOrigin = `${e.clientX - rect.left}px ${e.clientY - rect.top}px`;
   drag = {
     task, li, ghost, slot, items, h,
+    scale: 1.02,
     dx: e.clientX - rect.left,
     dy: e.clientY - rect.top,
     x: rect.left, y: rect.top, // where the ghost is drawn (eased toward the cursor)
@@ -246,7 +293,9 @@ function tickDrag() {
   if (!drag) return;
   drag.x += (drag.tx - drag.x) * 0.55;
   drag.y += (drag.ty - drag.y) * 0.55;
-  drag.ghost.style.transform = `translate(${drag.x}px, ${drag.y}px) scale(1.02)`;
+  // Shrink toward a day tab while hovering it, as if being tucked into it.
+  drag.scale += ((drag.tab ? 0.7 : 1.02) - drag.scale) * 0.3;
+  drag.ghost.style.transform = `translate(${drag.x}px, ${drag.y}px) scale(${drag.scale})`;
 
   // Scroll gently while the cursor rests near the top or bottom edge.
   const main = $('sections');
@@ -317,20 +366,36 @@ function endDrag() {
   const { task, ghost, slot, tab, target } = drag;
   cancelAnimationFrame(drag.frame);
   drag = null;
-  document.body.classList.remove('dragging');
+  document.body.classList.remove('dragging', 'drag-repeat');
 
   const finish = () => { ghost.remove(); update(); };
-
-  if (tab) {
-    const view = tab.dataset.view;
+  const moveTo = (view) => {
     delete task.due;
     delete task.week;
     if (view === WEEK) task.week = thisWeek();
     else task.due = view;
-    ghost.style.transition = 'opacity .15s ease, transform .15s ease';
+  };
+
+  if (tab) {
+    const view = tab.dataset.view;
+    if (view !== 'pick') moveTo(view);
+    // Fly into the tab and fade.
+    const r = tab.getBoundingClientRect();
+    ghost.style.transition = 'opacity .2s ease, transform .2s cubic-bezier(.4,0,.2,1)';
+    ghost.style.transformOrigin = '0 0';
     ghost.style.opacity = '0';
-    ghost.style.transform += ' scale(.9)';
-    setTimeout(finish, 150);
+    ghost.style.transform = `translate(${r.left + r.width / 2 - 10}px, ${r.top + r.height / 2 - 6}px) scale(.15)`;
+    setTimeout(() => {
+      finish();
+      // Dropped on "+": choose any day for it.
+      if (view === 'pick') {
+        openPicker(document.querySelector('.tab.add'), (day) => {
+          if (day > tomorrow() && !state.days.includes(day)) state.days.push(day);
+          moveTo(day);
+          update();
+        });
+      }
+    }, 200);
     return;
   }
 
@@ -517,9 +582,10 @@ function renderTask(task) {
   del.textContent = '×';
   del.onclick = () => { state.tasks = state.tasks.filter((x) => x !== task); update(); };
 
-  const setTime = (anchor) => openTimePicker(anchor, task.time, (time) => {
-    if (time) task.time = time;
-    else delete task.time;
+  const setTime = (anchor) => openTimePicker(anchor, task.time ? { time: task.time, end: task.end } : null, (frame) => {
+    delete task.time;
+    delete task.end;
+    if (frame) Object.assign(task, frame);
     update();
   });
 
@@ -528,7 +594,7 @@ function renderTask(task) {
     const time = document.createElement('button');
     time.className = 'time';
     time.title = 'Change time';
-    time.textContent = formatTime(task.time);
+    time.textContent = formatRange(task.time, task.end);
     time.onclick = () => setTime(time);
     li.append(time);
   }
@@ -603,7 +669,7 @@ function renderComposer() {
   $('repeat').textContent = selected === WEEK ? 'weekly' : 'daily';
   $('repeat').title = selected === WEEK ? 'Repeat every week' : 'Repeat every day';
   $('repeat').classList.toggle('on', addRepeat);
-  $('time').textContent = addTime ? formatTime(addTime) : 'time';
+  $('time').textContent = addTime ? formatRange(addTime.time, addTime.end) : 'time';
   $('time').classList.toggle('on', !!addTime);
 }
 
@@ -674,41 +740,84 @@ function openPicker(anchor, onPick) {
   showPopover(anchor);
 }
 
-/* Time picker: half-hour slots, scrolled to around now, plus a field for an exact time */
+/* Time picker, in two steps: pick a start (half-hour slots, or type a time or a
+   whole range), then optionally an end. `current` and the picked value are
+   { time, end? } or null. */
+
+const HALF_HOURS = [];
+for (let h = 0; h < 24; h++) for (const m of [0, 30]) HALF_HOURS.push(`${pad(h)}:${pad(m)}`);
 
 function openTimePicker(anchor, current, onPick) {
   const picker = $('picker');
-  const slots = [];
-  for (let h = 0; h < 24; h++) for (const m of [0, 30]) slots.push(`${pad(h)}:${pad(m)}`);
+  const pick = (value) => { closePicker(); onPick(value); };
 
-  picker.innerHTML = `
-    <input class="time-entry" placeholder="type a time, e.g. 9:45pm" spellcheck="false">
-    <div class="slots">
-      ${current ? '<button data-time="" class="clear">no time</button>' : ''}
-      ${slots.map((s) => `<button data-time="${s}" class="${s === current ? 'is-picked' : ''}">${formatTime(s)}</button>`).join('')}
-    </div>`;
-
-  const pick = (time) => { closePicker(); onPick(time); };
-  picker.onclick = (e) => {
-    const b = e.target.closest('button[data-time]');
-    if (b) pick(b.dataset.time || null);
+  const scrollNear = (time) => {
+    const list = picker.querySelector('.slots');
+    const target = time.slice(0, 3) + (time.slice(3) < '30' ? '00' : '30');
+    const slot = [...list.querySelectorAll('button[data-time]')].find((b) => b.dataset.time >= target);
+    if (slot) list.scrollTop = slot.offsetTop - list.offsetTop - 30;
   };
-  const entry = picker.querySelector('.time-entry');
-  entry.onkeydown = (e) => {
-    if (e.key !== 'Enter') return;
-    e.preventDefault();
-    const time = parseTime(entry.value);
-    if (time) pick(time);
-    else entry.classList.add('invalid');
-  };
-  entry.oninput = () => entry.classList.remove('invalid');
 
+  const stepStart = () => {
+    picker.innerHTML = `
+      <input class="time-entry" placeholder="a time or range, e.g. 2-3:30pm" spellcheck="false">
+      <div class="slots">
+        ${current ? '<button data-clear class="clear">no time</button>' : ''}
+        ${HALF_HOURS.map((s) => `<button data-time="${s}" class="${current && s === current.time ? 'is-picked' : ''}">${formatTime(s)}</button>`).join('')}
+      </div>`;
+    picker.onclick = (e) => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      if (b.hasAttribute('data-clear')) pick(null);
+      else if (b.dataset.time) stepEnd(b.dataset.time);
+    };
+    const entry = picker.querySelector('.time-entry');
+    entry.onkeydown = (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const frame = parseTimeFrame(entry.value);
+      if (frame) pick(frame);
+      else entry.classList.add('invalid');
+    };
+    entry.oninput = () => entry.classList.remove('invalid');
+    scrollNear(current ? current.time : nowTime());
+    entry.focus();
+  };
+
+  const stepEnd = (time) => {
+    const ends = HALF_HOURS.filter((s) => s > time).concat(time < '23:59' ? ['23:59'] : []);
+    picker.innerHTML = `
+      <div class="time-step">
+        <button data-back title="Change start">‹</button>
+        <span>from ${formatTime(time)} until…</span>
+      </div>
+      <input class="time-entry" placeholder="type an end time" spellcheck="false">
+      <div class="slots">
+        <button data-only class="clear">no end time</button>
+        ${ends.map((s) => `<button data-end="${s}" class="${current && s === current.end ? 'is-picked' : ''}">${formatTime(s)} <span class="dur">${duration(time, s)}</span></button>`).join('')}
+      </div>`;
+    picker.onclick = (e) => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      if (b.hasAttribute('data-back')) stepStart();
+      else if (b.hasAttribute('data-only')) pick({ time });
+      else if (b.dataset.end) pick({ time, end: b.dataset.end });
+    };
+    const entry = picker.querySelector('.time-entry');
+    entry.onkeydown = (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const end = parseTime(entry.value);
+      if (end && end > time) pick({ time, end });
+      else entry.classList.add('invalid');
+    };
+    entry.oninput = () => entry.classList.remove('invalid');
+    entry.focus();
+  };
+
+  stepStart();
   showPopover(anchor);
-  // Start the list near the chosen time, or near now.
-  const near = current || nowTime();
-  const slot = [...picker.querySelectorAll('.slots button[data-time]')].find((b) => b.dataset.time && b.dataset.time >= near.slice(0, 3) + (near.slice(3) < '30' ? '00' : '30'));
-  if (slot) picker.querySelector('.slots').scrollTop = slot.offsetTop - picker.querySelector('.slots').offsetTop - 30;
-  entry.focus();
+  scrollNear(current ? current.time : nowTime());
 }
 
 // Place the shared popover next to its anchor, flipping above when there's no room below.
@@ -737,7 +846,7 @@ $('composer').onsubmit = (e) => {
   e.preventDefault();
   const text = $('new').value.trim();
   if (!text) return;
-  const base = { id: uid(), text, cat: state.lastCat, ...(addTime ? { time: addTime } : {}) };
+  const base = { id: uid(), text, cat: state.lastCat, ...addTime };
   let task;
   if (selected === WEEK) {
     task = addRepeat
@@ -749,7 +858,7 @@ $('composer').onsubmit = (e) => {
       : { ...base, due: selected, done: false };
   }
   // A timed task goes in before the first later-timed task in its section.
-  const later = addTime && tasksFor(selected).find((x) => x.cat === task.cat && x.time > addTime);
+  const later = addTime && tasksFor(selected).find((x) => x.cat === task.cat && x.time > addTime.time);
   if (later) state.tasks.splice(state.tasks.indexOf(later), 0, task);
   else state.tasks.push(task);
   state.collapsed[state.lastCat] = false;
@@ -763,8 +872,8 @@ $('repeat').onclick = () => {
   renderComposer();
   $('new').focus();
 };
-$('time').onclick = () => openTimePicker($('time'), addTime, (time) => {
-  addTime = time;
+$('time').onclick = () => openTimePicker($('time'), addTime, (frame) => {
+  addTime = frame;
   renderComposer();
   $('new').focus();
 });
