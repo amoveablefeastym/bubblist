@@ -314,29 +314,33 @@ body.dragging .task .del { opacity: 0; }
 .grid button.is-taken { color: var(--faint); }
 .edit { font-size: 12px; }
 
-/* Resize handles: the outer side, the bottom, and the outer bottom corner.
-   Invisible until hovered, then a short grip line shows where to pull. */
+/* Resize handles: the outer side, top and bottom edges, and the two outer
+   corners. Invisible until hovered, then a short grip line shows where to pull. */
 .resize { position: absolute; z-index: 20; }
-.resize.side { top: 40px; bottom: 40px; width: 8px; cursor: ew-resize; }
-.resize.bottom { left: 40px; right: 40px; bottom: 0; height: 8px; cursor: ns-resize; }
-.resize.corner { bottom: 0; width: 22px; height: 22px; }
+.resize.side { top: 40px; bottom: 40px; width: 10px; cursor: ew-resize; }
+.resize.top, .resize.bottom { left: 40px; right: 40px; height: 10px; cursor: ns-resize; }
+.resize.top { top: 0; }
+.resize.bottom { bottom: 0; }
+.resize.corner { bottom: 0; width: 24px; height: 24px; }
+.resize.corner-top { top: 0; bottom: auto; }
 body[data-outer="left"] .resize.side, body[data-outer="left"] .resize.corner { left: 0; }
-body[data-outer="right"] .resize.side, body[data-outer="right"] .resize.corner, body:not([data-outer]) .resize.side, body:not([data-outer]) .resize.corner { right: 0; }
+body:not([data-outer="left"]) .resize.side, body:not([data-outer="left"]) .resize.corner { right: 0; }
 body[data-outer="left"] .resize.corner { cursor: nesw-resize; }
+body[data-outer="left"] .resize.corner-top { cursor: nwse-resize; }
 body:not([data-outer="left"]) .resize.corner { cursor: nwse-resize; }
+body:not([data-outer="left"]) .resize.corner-top { cursor: nesw-resize; }
 .resize::after {
   content: ""; position: absolute;
   background: rgba(74, 71, 68, .3); border-radius: 2px;
   opacity: 0; transition: opacity .15s ease;
 }
-.resize.side::after { top: 50%; left: 2px; width: 3px; height: 36px; margin-top: -18px; }
-.resize.bottom::after { left: 50%; bottom: 2px; width: 36px; height: 3px; margin-left: -18px; }
-.resize.corner::after {
-  bottom: 5px; width: 9px; height: 9px; background: none; border-radius: 0;
-  border-bottom: 2px solid rgba(74, 71, 68, .3);
-}
-body[data-outer="left"] .resize.corner::after { left: 5px; border-left: 2px solid rgba(74, 71, 68, .3); border-bottom-left-radius: 4px; }
-body:not([data-outer="left"]) .resize.corner::after { right: 5px; border-right: 2px solid rgba(74, 71, 68, .3); border-bottom-right-radius: 4px; }
+.resize.side::after { top: 50%; left: 3px; width: 3px; height: 36px; margin-top: -18px; }
+.resize.top::after { left: 50%; top: 3px; width: 36px; height: 3px; margin-left: -18px; }
+.resize.bottom::after { left: 50%; bottom: 3px; width: 36px; height: 3px; margin-left: -18px; }
+.resize.corner::after { width: 9px; height: 9px; background: none; border-radius: 0; bottom: 6px; border-bottom: 2px solid rgba(74, 71, 68, .3); }
+.resize.corner-top::after { bottom: auto; top: 6px; border-bottom: 0; border-top: 2px solid rgba(74, 71, 68, .3); }
+body[data-outer="left"] .resize.corner::after { left: 6px; border-left: 2px solid rgba(74, 71, 68, .3); }
+body:not([data-outer="left"]) .resize.corner::after { right: 6px; border-right: 2px solid rgba(74, 71, 68, .3); }
 .resize:hover::after, body.resizing .resize::after { opacity: 1; }
 body.resizing, body.resizing * { user-select: none; }
 

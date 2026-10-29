@@ -97,7 +97,7 @@ whenever you start your Mac.
 | Add a day | Click **+** at the end of the tabs |
 | Delete a day | Hover its tab and click **×** |
 | Collapse a section | Click its heading |
-| Resize the panel | Drag its outer edge, bottom edge, or bottom corner (the side away from the bubble). The size is remembered. |
+| Resize the panel | Drag its top or bottom edge for height, its outer side for width, or an outer corner for both (the side away from the bubble). The size is remembered. |
 | Move the bubble | Drag it |
 | Quit, or turn off open at login | Right-click the bubble |
 

@@ -145,7 +145,8 @@ function placePanel() {
 
 // Resizing from the panel's own handles (transparent windows can't use the
 // system's edge resizing). The edge facing the bubble stays put; `edge` is
-// 'side' (the outer side), 'bottom', or 'corner' (both).
+// 'side' (the outer side), 'top', 'bottom', or a corner: 'corner' (outer
+// bottom) or 'corner-top' (outer top).
 let resize = null;
 
 ipcMain.on('panel:resizeStart', (_e, edge) => {
@@ -158,16 +159,22 @@ ipcMain.on('panel:resizeStart', (_e, edge) => {
     const p = screen.getCursorScreenPoint();
     const dx = p.x - start.x;
     const dy = p.y - start.y;
-    let { x, width, height } = bounds;
-    if (edge !== 'bottom') {
+    let { x, y, width, height } = bounds;
+    if (edge === 'side' || edge.startsWith('corner')) {
       const maxW = growsLeft ? bounds.x + bounds.width - wa.x - 8 : wa.x + wa.width - bounds.x - 8;
       width = Math.min(Math.max(bounds.width + (growsLeft ? -dx : dx), PANEL_MIN_W), maxW);
       if (growsLeft) x = bounds.x + bounds.width - width;
     }
-    if (edge !== 'side') {
+    if (edge === 'bottom' || edge === 'corner') {
       height = Math.min(Math.max(bounds.height + dy, PANEL_MIN_H), wa.y + wa.height - bounds.y - 8);
     }
-    panel.setBounds({ x, y: bounds.y, width, height });
+    if (edge === 'top' || edge === 'corner-top') {
+      // Grow upward: the bottom edge stays where it is.
+      const bottom = bounds.y + bounds.height;
+      height = Math.min(Math.max(bounds.height - dy, PANEL_MIN_H), bottom - wa.y - 8);
+      y = bottom - height;
+    }
+    panel.setBounds({ x, y, width, height });
   }, 8);
 });
 
