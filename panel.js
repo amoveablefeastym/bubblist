@@ -893,7 +893,29 @@ document.addEventListener('keydown', (e) => {
   else api.hidePanel();
 });
 
+/* Resize handles on the edges away from the bubble; the main process does the
+   actual resizing by following the cursor. */
+
+for (const handle of document.querySelectorAll('.resize')) {
+  handle.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    handle.setPointerCapture(e.pointerId);
+    document.body.classList.add('resizing');
+    api.resizeStart(handle.dataset.edge);
+  });
+  const end = () => {
+    if (!document.body.classList.contains('resizing')) return;
+    document.body.classList.remove('resizing');
+    api.resizeEnd();
+  };
+  handle.addEventListener('pointerup', end);
+  handle.addEventListener('lostpointercapture', end);
+}
+
 api.on('panel:shown', (side) => {
+  // side is where the bubble sits; the resize handles go on the other side.
+  document.body.dataset.outer = side === 'right' ? 'left' : 'right';
   const shell = $('shell');
   shell.classList.remove('enter-left', 'enter-right');
   void shell.offsetWidth;

@@ -313,3 +313,29 @@ body.dragging .task .del { opacity: 0; }
 .grid button.is-today { text-decoration: underline; text-underline-offset: 3px; }
 .grid button.is-taken { color: var(--faint); }
 .edit { font-size: 12px; }
+
+/* Resize handles: the outer side, the bottom, and the outer bottom corner.
+   Invisible until hovered, then a short grip line shows where to pull. */
+.resize { position: absolute; z-index: 20; }
+.resize.side { top: 40px; bottom: 40px; width: 8px; cursor: ew-resize; }
+.resize.bottom { left: 40px; right: 40px; bottom: 0; height: 8px; cursor: ns-resize; }
+.resize.corner { bottom: 0; width: 22px; height: 22px; }
+body[data-outer="left"] .resize.side, body[data-outer="left"] .resize.corner { left: 0; }
+body[data-outer="right"] .resize.side, body[data-outer="right"] .resize.corner, body:not([data-outer]) .resize.side, body:not([data-outer]) .resize.corner { right: 0; }
+body[data-outer="left"] .resize.corner { cursor: nesw-resize; }
+body:not([data-outer="left"]) .resize.corner { cursor: nwse-resize; }
+.resize::after {
+  content: ""; position: absolute;
+  background: rgba(74, 71, 68, .3); border-radius: 2px;
+  opacity: 0; transition: opacity .15s ease;
+}
+.resize.side::after { top: 50%; left: 2px; width: 3px; height: 36px; margin-top: -18px; }
+.resize.bottom::after { left: 50%; bottom: 2px; width: 36px; height: 3px; margin-left: -18px; }
+.resize.corner::after {
+  bottom: 5px; width: 9px; height: 9px; background: none; border-radius: 0;
+  border-bottom: 2px solid rgba(74, 71, 68, .3);
+}
+body[data-outer="left"] .resize.corner::after { left: 5px; border-left: 2px solid rgba(74, 71, 68, .3); border-bottom-left-radius: 4px; }
+body:not([data-outer="left"]) .resize.corner::after { right: 5px; border-right: 2px solid rgba(74, 71, 68, .3); border-bottom-right-radius: 4px; }
+.resize:hover::after, body.resizing .resize::after { opacity: 1; }
+body.resizing, body.resizing * { user-select: none; }

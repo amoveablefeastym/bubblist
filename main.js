@@ -3,8 +3,10 @@ const path = require('path');
 const fs = require('fs');
 
 const BUBBLE = 64;
-const PANEL_W = 380;
+const PANEL_W = 380; // default size; the user can resize and it's remembered
 const PANEL_H = 620;
+const PANEL_MIN_W = 300;
+const PANEL_MIN_H = 380;
 const GAP = 12;
 
 // Keep data in the same folder whether run from source or as the packaged
@@ -91,6 +93,8 @@ function createPanel() {
   panel = new BrowserWindow({
     width: PANEL_W,
     height: PANEL_H,
+    minWidth: PANEL_MIN_W,
+    minHeight: PANEL_MIN_H,
     show: false,
     frame: false,
     transparent: true,
@@ -113,22 +117,67 @@ function createPanel() {
   });
 
   panel.on('blur', () => {
-    if (panel.isVisible() && !drag) {
+    if (panel.isVisible() && !drag && !resize) {
       lastBlurHide = Date.now();
       hidePanel();
     }
   });
 }
 
+function panelSize(wa) {
+  const saved = readJSON(prefsFile(), {}).panel || {};
+  return {
+    width: Math.min(Math.max(saved.width || PANEL_W, PANEL_MIN_W), wa.width - 16),
+    height: Math.min(Math.max(saved.height || PANEL_H, PANEL_MIN_H), wa.height - 16),
+  };
+}
+
 function placePanel() {
   const b = bubble.getBounds();
   const wa = screen.getDisplayMatching(b).workArea;
+  const { width, height } = panelSize(wa);
   const onRight = b.x + b.width / 2 > wa.x + wa.width / 2;
-  const x = onRight ? b.x - PANEL_W - GAP : b.x + b.width + GAP;
-  const y = Math.min(Math.max(b.y + b.height / 2 - 60, wa.y + 8), wa.y + wa.height - PANEL_H - 8);
-  panel.setBounds({ x: Math.round(x), y: Math.round(y), width: PANEL_W, height: PANEL_H });
+  const x = onRight ? b.x - width - GAP : b.x + b.width + GAP;
+  const y = Math.min(Math.max(b.y + b.height / 2 - 60, wa.y + 8), wa.y + wa.height - height - 8);
+  panel.setBounds({ x: Math.round(x), y: Math.round(y), width, height });
   return onRight ? 'right' : 'left';
 }
+
+// Resizing from the panel's own handles (transparent windows can't use the
+// system's edge resizing). The edge facing the bubble stays put; `edge` is
+// 'side' (the outer side), 'bottom', or 'corner' (both).
+let resize = null;
+
+ipcMain.on('panel:resizeStart', (_e, edge) => {
+  const start = screen.getCursorScreenPoint();
+  const bounds = panel.getBounds();
+  const wa = screen.getDisplayMatching(bounds).workArea;
+  const growsLeft = bubble.getBounds().x > bounds.x; // panel sits left of the bubble
+  resize = { edge, start, bounds, wa, growsLeft };
+  resize.timer = setInterval(() => {
+    const p = screen.getCursorScreenPoint();
+    const dx = p.x - start.x;
+    const dy = p.y - start.y;
+    let { x, width, height } = bounds;
+    if (edge !== 'bottom') {
+      const maxW = growsLeft ? bounds.x + bounds.width - wa.x - 8 : wa.x + wa.width - bounds.x - 8;
+      width = Math.min(Math.max(bounds.width + (growsLeft ? -dx : dx), PANEL_MIN_W), maxW);
+      if (growsLeft) x = bounds.x + bounds.width - width;
+    }
+    if (edge !== 'side') {
+      height = Math.min(Math.max(bounds.height + dy, PANEL_MIN_H), wa.y + wa.height - bounds.y - 8);
+    }
+    panel.setBounds({ x, y: bounds.y, width, height });
+  }, 8);
+});
+
+ipcMain.on('panel:resizeEnd', () => {
+  if (!resize) return;
+  clearInterval(resize.timer);
+  resize = null;
+  const { width, height } = panel.getBounds();
+  writeJSON(prefsFile(), { ...readJSON(prefsFile(), {}), panel: { width, height } });
+});
 
 function showPanel() {
   const side = placePanel();
