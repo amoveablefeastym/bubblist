@@ -470,9 +470,9 @@ function setDone(task, done) {
 const CONFETTI_COLORS = ['#ff8fa3', '#ffc75f', '#7bdff2', '#b8a1ff', '#8ce99a', '#ffb38a', '#f9f871'];
 const confetti = { parts: [], frame: 0, last: 0 };
 
-function celebrate(x, y, { count = 40, spread = 75, speed = 9 } = {}) {
+function celebrate(x, y, { count = 40, spread = 75, speed = 9, aim = -90, life = 70 } = {}) {
   for (let i = 0; i < count; i++) {
-    const angle = (-90 + (Math.random() - 0.5) * 2 * spread) * (Math.PI / 180);
+    const angle = (aim + (Math.random() - 0.5) * 2 * spread) * (Math.PI / 180);
     const v = speed * (0.45 + Math.random() * 0.75);
     confetti.parts.push({
       x, y,
@@ -486,13 +486,87 @@ function celebrate(x, y, { count = 40, spread = 75, speed = 9 } = {}) {
       color: CONFETTI_COLORS[(Math.random() * CONFETTI_COLORS.length) | 0],
       phase: Math.random() * Math.PI * 2,
       age: 0,
-      life: 70 + Math.random() * 50,
+      life: life + Math.random() * 50,
     });
   }
+  startConfetti();
+}
+
+// Pieces that drift down from above the top edge, like a slow shower.
+function rainConfetti(count) {
+  for (let i = 0; i < count; i++) {
+    confetti.parts.push({
+      x: Math.random() * innerWidth,
+      y: -20 - Math.random() * innerHeight * 0.6,
+      vx: (Math.random() - 0.5) * 1.5,
+      vy: 1 + Math.random() * 2,
+      rot: Math.random() * Math.PI * 2,
+      vr: (Math.random() - 0.5) * 0.3,
+      w: 4 + Math.random() * 4,
+      h: 6 + Math.random() * 6,
+      round: Math.random() < 0.3,
+      color: CONFETTI_COLORS[(Math.random() * CONFETTI_COLORS.length) | 0],
+      phase: Math.random() * Math.PI * 2,
+      age: 0,
+      life: 260 + Math.random() * 80,
+    });
+  }
+  startConfetti();
+}
+
+function startConfetti() {
   if (!confetti.frame) {
     confetti.last = performance.now();
     confetti.frame = requestAnimationFrame(drawConfetti);
   }
+}
+
+/* The big one, for clearing a whole tab: cannons from the bottom corners,
+   fireworks across the top, a shower of confetti, a ripple of light through
+   the glass, and a card saying so. */
+function grandFinale(view) {
+  const w = innerWidth, h = innerHeight;
+  const t = (ms, fn) => setTimeout(fn, ms);
+
+  t(0, () => {
+    celebrate(0, h, { count: 90, spread: 22, speed: 21, aim: -62, life: 120 });
+    celebrate(w, h, { count: 90, spread: 22, speed: 21, aim: -118, life: 120 });
+  });
+  t(380, () => celebrate(w * 0.3, h * 0.28, { count: 55, spread: 180, speed: 8, life: 90 }));
+  t(620, () => celebrate(w * 0.72, h * 0.22, { count: 55, spread: 180, speed: 8, life: 90 }));
+  t(860, () => celebrate(w * 0.5, h * 0.4, { count: 70, spread: 180, speed: 10, life: 100 }));
+  t(500, () => rainConfetti(140));
+  t(1300, () => {
+    celebrate(0, h, { count: 50, spread: 25, speed: 19, aim: -65, life: 110 });
+    celebrate(w, h, { count: 50, spread: 25, speed: 19, aim: -115, life: 110 });
+  });
+
+  const shell = $('shell');
+  shell.classList.remove('cheer');
+  void shell.offsetWidth; // restart the ripple if it's already playing
+  shell.classList.add('cheer');
+  t(1600, () => shell.classList.remove('cheer'));
+
+  document.querySelector('.finale')?.remove();
+  const when = view === WEEK ? 'this week'
+    : view === today() ? 'today'
+    : `for ${parse(view).toLocaleDateString('en-US', { weekday: 'long' })}`;
+  const card = document.createElement('div');
+  card.className = 'finale';
+  card.innerHTML = `
+    <div class="finale-card">
+      <div class="finale-mark">✦</div>
+      <div class="finale-title">all done</div>
+      <div class="finale-sub">nothing left ${when}</div>
+    </div>`;
+  document.body.append(card);
+  const close = () => {
+    if (card.classList.contains('out')) return;
+    card.classList.add('out');
+    t(450, () => card.remove());
+  };
+  card.onclick = close;
+  t(3200, close);
 }
 
 function drawConfetti(now) {
@@ -567,15 +641,10 @@ function renderTask(task) {
     const r = check.getBoundingClientRect();
     celebrate(r.left + r.width / 2, r.top + r.height / 2);
 
-    // Finishing the last open task on this tab gets a bigger show.
+    // Finishing the last open task on this tab gets the full show.
     const view = selected;
     const lastOne = tasksFor(view).every((x) => x === task || isDone(x, view));
-    if (lastOne) {
-      setTimeout(() => {
-        celebrate(innerWidth * 0.25, innerHeight * 0.35, { count: 60, spread: 50, speed: 13 });
-        celebrate(innerWidth * 0.75, innerHeight * 0.35, { count: 60, spread: 50, speed: 13 });
-      }, 220);
-    }
+    if (lastOne) setTimeout(() => grandFinale(view), 260);
     setTimeout(() => { setDone(task, true); update(); }, 650);
   };
   check.onclick = toggle;
