@@ -67,6 +67,21 @@ header {
   padding: 4px 0 18px;
 }
 
+/* Pin toggle, in the top corner on the bubble's side (the other corner holds
+   a resize handle). */
+.pin {
+  position: absolute; top: 14px; left: 16px;
+  width: 22px; height: 22px; border-radius: 6px;
+  display: grid; place-items: center;
+  color: var(--faint);
+  z-index: 2;
+}
+body[data-outer="left"] .pin { left: auto; right: 16px; }
+.pin svg { width: 13px; height: 13px; stroke-width: 1.4; }
+.pin:hover { color: var(--ink); background: var(--hover); }
+.pin.on { color: var(--ink); }
+.pin.on svg { transform: rotate(-45deg); }
+
 /* Day tabs: typed words, the current one underlined. */
 .tabs {
   display: flex; gap: 10px; justify-content: center;

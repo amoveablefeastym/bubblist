@@ -1022,6 +1022,14 @@ for (const handle of document.querySelectorAll('.resize')) {
   handle.addEventListener('lostpointercapture', end);
 }
 
+let pinned = false;
+$('pin').onclick = () => api.pin(!pinned);
+api.on('panel:pinned', (on) => {
+  pinned = on;
+  $('pin').classList.toggle('on', on);
+  $('pin').title = on ? 'Unpin: hide when clicking away' : 'Pin: keep on screen';
+});
+
 api.on('panel:shown', (side) => {
   // side is where the bubble sits; the resize handles go on the other side.
   document.body.dataset.outer = side === 'right' ? 'left' : 'right';

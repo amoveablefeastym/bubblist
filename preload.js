@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('api', {
   save: (data) => ipcRenderer.send('todos:save', data),
   setCount: (n) => ipcRenderer.send('todos:count', n),
   hidePanel: () => ipcRenderer.send('panel:hide'),
+  pin: (on) => ipcRenderer.send('panel:pin', on),
   resizeStart: (edge) => ipcRenderer.send('panel:resizeStart', edge),
   resizeEnd: () => ipcRenderer.send('panel:resizeEnd'),
   dragStart: () => ipcRenderer.send('bubble:dragStart'),

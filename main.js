@@ -59,6 +59,8 @@ let bubble;
 let panel;
 let lastBlurHide = 0;
 let drag = null;
+// Pinned: the panel stays on screen as glass when you click elsewhere.
+let pinned = !!readJSON(prefsFile(), {}).pinned;
 
 function createBubble() {
   const wa = screen.getPrimaryDisplay().workArea;
@@ -114,7 +116,7 @@ function createPanel() {
   });
 
   panel.on('blur', () => {
-    if (panel.isVisible() && !drag && !resize) {
+    if (panel.isVisible() && !drag && !resize && !pinned) {
       lastBlurHide = Date.now();
       hidePanel();
     }
@@ -183,12 +185,16 @@ ipcMain.on('panel:resizeEnd', () => {
   writeJSON(prefsFile(), { ...readJSON(prefsFile(), {}), panel: { width, height } });
 });
 
-function showPanel() {
+function showPanel({ inactive = false } = {}) {
   const side = placePanel();
   panel.setOpacity(0);
-  panel.show();
-  panel.focus();
+  if (inactive) panel.showInactive();
+  else {
+    panel.show();
+    panel.focus();
+  }
   panel.webContents.send('panel:shown', side);
+  panel.webContents.send('panel:pinned', pinned);
   bubble.webContents.send('bubble:open', true);
   let o = 0;
   const fade = setInterval(() => {
@@ -212,6 +218,11 @@ ipcMain.handle('todos:load', () => readJSON(dataFile(), null));
 ipcMain.on('todos:save', (_e, data) => writeJSON(dataFile(), data));
 ipcMain.on('todos:count', (_e, n) => bubble && bubble.webContents.send('bubble:count', n));
 ipcMain.on('panel:hide', () => hidePanel());
+ipcMain.on('panel:pin', (_e, on) => {
+  pinned = !!on;
+  writeJSON(prefsFile(), { ...readJSON(prefsFile(), {}), pinned });
+  panel.webContents.send('panel:pinned', pinned);
+});
 
 // Dragging is driven from the main process by polling the cursor, so the bubble
 // keeps up even when the mouse outruns its tiny window.
@@ -271,6 +282,8 @@ app.whenReady().then(() => {
   nativeTheme.themeSource = 'light'; // keep the frosted glass white even in dark mode
   createBubble();
   createPanel();
+  // A pinned panel comes back on launch, without taking focus from other apps.
+  if (pinned) panel.webContents.once('did-finish-load', () => showPanel({ inactive: true }));
   globalShortcut.register('CommandOrControl+Shift+Space', togglePanel);
 });
 
